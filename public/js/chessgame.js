@@ -9,28 +9,27 @@ let playerRole = null;
 const renderBoard = () => {
     const board = chess.board();
     boardElement.innerHTML = "";
-    board.forEach((row, rowindex) => {
+    board.forEach((row, rowIndex) => {
         row.forEach((square, squareIndex) => {
             const squareElement = document.createElement("div");
             squareElement.classList.add("square", 
-                (rowindex + squareIndex) %2 === 0 ? "light" : "dark"   //for creating chess board
+                (rowIndex + squareIndex) % 2 === 0 ? "light" : "dark"
             );
 
-            squareElement.dataset.row = rowindex;
+            squareElement.dataset.row = rowIndex;
             squareElement.dataset.col = squareIndex;
 
             if(square){
                 const pieceElement = document.createElement("div");
-                pieceElement.classList.add("piece", square.color === 'w' ? "white" : "black"  
+                pieceElement.classList.add("piece", square.color === 'w' ? "white" : "black");
 
-                );
                 pieceElement.innerText = getPieceUnicode(square);
                 pieceElement.draggable = playerRole === square.color;
 
                 pieceElement.addEventListener("dragstart", (e) => {
                     if(pieceElement.draggable){
                         draggedPiece = pieceElement;
-                        sourceSquare = {row: rowindex, col: squareIndex };
+                        sourceSquare = { row: rowIndex, col: squareIndex };
                         e.dataTransfer.setData("text/plain", "");
                     }
                 });
@@ -50,17 +49,16 @@ const renderBoard = () => {
             squareElement.addEventListener("drop", function(e){
                 e.preventDefault();
                 if(draggedPiece){
-                    const targetSource = {
+                    const targetSquare = {
                         row: parseInt(squareElement.dataset.row),
                         col: parseInt(squareElement.dataset.col),
                     };
 
-                    handleMove(sourceSquare, targetSource);
+                    handleMove(sourceSquare, targetSquare);
                 }
             });
             
             boardElement.appendChild(squareElement);
-
         });
     });
 
@@ -77,23 +75,32 @@ const handleMove = (source, target) => {
         to: `${String.fromCharCode(97 + target.col)}${8 - target.row}`,
     };
 
-    socket.emit("move", move);
+    console.log("Attempting move:", move);
+
+    // Check if the move is valid before emitting
+    const validMove = chess.move(move);
+    if (validMove) {
+        chess.undo(); // Undo the move since we're just checking validity here
+        socket.emit("move", move);
+    } else {
+        console.error("Invalid move:", move);
+    }
 };
 
 const getPieceUnicode = (piece) => {
   const unicodePieces = {
-    p : "♙",
-    r : "♖",
-    n : "♘",
+    p: "♙",
+    r: "♖",
+    n: "♘",
     b: "♗",
-    q : "♕",
+    q: "♕",
     k: "♔",
-    P : "♟",
-    R : "♜",
+    P: "♟",
+    R: "♜",
     N: "♞",
-    B : "♝",
+    B: "♝",
     Q: "♛",
-    K : "♚",
+    K: "♚",
   };
 
   return unicodePieces[piece.type] || "";
@@ -115,9 +122,13 @@ socket.on("boardState", function(fen){
 });
 
 socket.on("move", function(move){
-    chess.move(move);
-    renderBoard();
+    console.log("Received move:", move);
+    const validMove = chess.move(move);
+    if (validMove) {
+        renderBoard();
+    } else {
+        console.error("Received invalid move:", move);
+    }
 });
-
 
 renderBoard();
